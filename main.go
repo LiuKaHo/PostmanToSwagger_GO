@@ -294,9 +294,12 @@ func initResponse(responses []interface{}, path string) map[string]interface{} {
 			//解析
 			response_body, ok := gjson.Parse(body).Value().(map[string]interface{})
 			if !ok {
-				fmt.Println("parse body failed:" + body)
-				os.Exit(0)
+				//fmt.Println("parse body failed:" + body)
+				//os.Exit(0)
+				response_body = make(map[string]interface{})
+				response_body["body"] = body
 			}
+
 			response_key := strings.Replace(path, "/", "", -1) + response["name"].(string)
 			temp := initDefinitions(response_body, response_key)
 			definitions[response_key] = temp
@@ -336,7 +339,12 @@ func initResponseData(data interface{}, iden_key string) map[string]interface{} 
 
 	case []interface{}:
 		result["type"] = "array"
-		result["items"] = initResponseData(data.([]interface{})[0], iden_key)
+		temp_data := data.([]interface{})
+		if len(temp_data) == 0 {
+			result["items"] = make(map[string]interface{})
+		} else {
+			result["items"] = initResponseData(data.([]interface{})[0], iden_key)
+		}
 	}
 
 	return result
