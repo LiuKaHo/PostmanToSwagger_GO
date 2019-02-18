@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/md5"
 	"encoding/json"
 	"fmt"
 	"github.com/tidwall/gjson"
@@ -111,7 +112,6 @@ func initInfo(info map[string]interface{}) map[string]interface{} {
 
 func initContact() map[string]interface{} {
 	contact := make(map[string]interface{})
-	contact["email"] = ""
 	return contact
 }
 
@@ -199,14 +199,16 @@ func initPostmanUrl(paths []interface{}) string {
 	return result
 }
 
-func initParameters(key string, body map[string]interface{}) []map[string]interface{} {
+func initParameters(key string, body map[string]interface{}) ([]map[string]interface{}, bool) {
 	count := strings.Count(key, "{")
 	temp_index := 0
+
 	var parameters []map[string]interface{}
+	is_formdata := false
 	for i := 0; i < count; i++ {
 		start := strings.Index(key[temp_index:], "{")
 		end := strings.Index(key[temp_index:], "}")
-		value := key[start+1 : end]
+		value := key[start+1+temp_index : end+temp_index]
 
 		parameters_temp := make(map[string]interface{})
 		parameters_temp["name"] = value
@@ -216,7 +218,7 @@ func initParameters(key string, body map[string]interface{}) []map[string]interf
 		parameters_temp["type"] = "integer"
 		parameters_temp["format"] = "int64"
 		parameters = append(parameters, parameters_temp)
-		temp_index = start
+		temp_index = end + 1
 	}
 	if body["mode"] != nil {
 		mode := body["mode"].(string)
@@ -233,9 +235,10 @@ func initParameters(key string, body map[string]interface{}) []map[string]interf
 				parameters = append(parameters, parameters_temp)
 			}
 		}
+		is_formdata = true
 	}
 
-	return parameters
+	return parameters, is_formdata
 }
 
 func getDefault(source map[string]interface{}, index string, default_value interface{}) interface{} {
@@ -262,16 +265,19 @@ func initPathContent(item map[string]interface{}, tag string, paths map[string]i
 	tags := []string{tag}
 	temp_method := make(map[string]interface{})
 	temp_method["tags"] = tags
-	temp_method["summary"] = ""
+	temp_method["summary"] = item["name"].(string)
 	temp_method["description"] = getDefault(item, "description", "")
 	temp_method["consumes"] = []string{"application/json"}
 	temp_method["produces"] = []string{"application/json"}
 	//
-	temp_method["parameters"] = initParameters(key, request["body"].(map[string]interface{}))
+	var is_formdata bool
+	temp_method["parameters"], is_formdata = initParameters(key, request["body"].(map[string]interface{}))
 	if len(temp_method["parameters"].([]map[string]interface{})) == 0 {
 		temp_method["parameters"] = make([]interface{}, 0)
 	}
-
+	if is_formdata {
+		temp_method["consumes"] = []string{"application/x-www-form-urlencoded"}
+	}
 	response := item["response"].([]interface{})
 	if len(response) != 0 {
 		temp_method["responses"] = initResponse(response, key)
@@ -300,7 +306,10 @@ func initResponse(responses []interface{}, path string) map[string]interface{} {
 				response_body["body"] = body
 			}
 
-			response_key := strings.Replace(path, "/", "", -1) + response["name"].(string)
+			temp_key := []byte(response["name"].(string))
+			response_key := fmt.Sprintf("%x", md5.Sum(temp_key))
+
+			//response_key := strings.Replace(strings.Replace(path, "/", "", -1) + response["name"].(string), " ", "", -1);
 			temp := initDefinitions(response_body, response_key)
 			definitions[response_key] = temp
 			schema := make(map[string]interface{})
