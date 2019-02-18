@@ -157,7 +157,13 @@ func initItems(items []interface{}, paths map[string]interface{}, tags []interfa
 			key := initPostmanUrl(url["path"].([]interface{}))
 			temp_key := make(map[string]interface{})
 			temp_key[method] = initPathContent(item, "default", paths)
-			paths[key] = temp_key
+			//已存在
+			if temp_path, ok := paths[key].(map[string]interface{}); ok {
+				temp_path[method] = temp_key[method]
+				paths[key] = temp_path
+			} else {
+				paths[key] = temp_key
+			}
 		default: //文件夹内的
 			tags = append(tags, initTag(item))
 			paths, tags = initPaths(isExists.([]interface{}), getDefault(item, "name", "").(string), paths, tags)
@@ -179,7 +185,13 @@ func initPaths(items []interface{}, tag string, paths map[string]interface{}, ta
 			key := initPostmanUrl(url["path"].([]interface{}))
 			temp_key := make(map[string]interface{})
 			temp_key[method] = initPathContent(item, tag, paths)
-			paths[key] = temp_key
+			//已存在
+			if temp_path, ok := paths[key].(map[string]interface{}); ok {
+				temp_path[method] = temp_key[method]
+				paths[key] = temp_path
+			} else {
+				paths[key] = temp_key
+			}
 		default:
 			paths, tags = initPaths(isExists.([]interface{}), tag, paths, tags)
 		}
